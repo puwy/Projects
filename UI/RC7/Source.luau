@@ -23,8 +23,13 @@ local UI do
 			return LocalPlayer.PlayerGui:WaitForChild("RC7");
 		end
 
+		local OldUI = CoreGui:FindFirstChild("RC7");
+
+		if (OldUI) then
+			OldUI:Destroy();
+		end
+
 		local UI = InsertService:LoadLocalAsset("rbxassetid://86064436768066");
-		UI.Parent = CoreGui
 
 		return (UI)
 	end)()
@@ -73,7 +78,7 @@ Settings.Themes = ({
 			Held = "rbxassetid://102142466829005",
 		}
 	},
-	
+
 	["Default"] = {
 		Background = "rbxassetid://124857194241407",
 		SidebarHidden = "rbxassetid://81136884617932",
@@ -84,7 +89,7 @@ Settings.Themes = ({
 			Held = "rbxassetid://77577157942854",
 		}
 	},
-	
+
 	["Original"] = {
 		Background = "rbxassetid://91917553159314",
 		SidebarHidden = "rbxassetid://94786211816768",
@@ -95,7 +100,7 @@ Settings.Themes = ({
 			Held = "rbxassetid://114186601486895",
 		}
 	},
-	
+
 	["Gold"] = {
 		Background = "rbxassetid://80410032602070",
 		SidebarHidden = "rbxassetid://111661103444303",
@@ -106,7 +111,7 @@ Settings.Themes = ({
 			Held = "rbxassetid://86779948337592",
 		}
 	},
-	
+
 	["Blue Stripes"] = {
 		Background = "rbxassetid://106328753273398",
 		SidebarHidden = "rbxassetid://77177812579394",
@@ -117,7 +122,7 @@ Settings.Themes = ({
 			Held = "rbxassetid://138334634443386",
 		}
 	},
-	
+
 	["Classic Wolf"] = {
 		Background = "rbxassetid://83614191704393",
 		SidebarHidden = "rbxassetid://109892219262009",
@@ -126,6 +131,17 @@ Settings.Themes = ({
 			Idle = "rbxassetid://82773818019974",
 			Hovered = "rbxassetid://126125174628720",
 			Held = "rbxassetid://85967445856692",
+		}
+	},
+	
+	["Asriel"] = {
+		Background = "rbxassetid://135898167255005",
+		SidebarHidden = "rbxassetid://114335053823029",
+		TextColor = Color3.fromRGB(255, 255, 255),
+		Buttons = {
+			Idle = "rbxassetid://140478820640316",
+			Hovered = "rbxassetid://133789901296191",
+			Held = "rbxassetid://123606653787849",
 		}
 	},
 })
@@ -278,20 +294,27 @@ RC7.NewTab = function(Name, Code, Index, IsLoading)
 	Button.Parent = Tabs
 	Button.Name = tostring(NewIndex)
 	Button.LayoutOrder = NewIndex
-	
+
 	if (not IsLoading) then
 		Settings.SavedSettings.Tabs[NewIndex] = ({ Name = Name or `Script{ Button.Name }.lua`, Code = Code or `print("Hello World - { Button.Name }")`, Index = NewIndex });
 	end
-	
+
 	Button.Text = (Name) or (Settings.SavedSettings.Tabs[NewIndex].Name) or ("Script.lua");
 	Button.MouseButton1Click:Connect(function()
 		local OldIndex = (Settings.CurrentIndex);
+		local Script = (Settings.SavedSettings.Tabs[NewIndex].Code);
+		
 		Settings.CurrentIndex = (NewIndex);
-		ScriptEditor.Text = (Settings.SavedSettings.Tabs[NewIndex].Code);
 		Tabs:FindFirstChild(tostring(OldIndex)).BackgroundTransparency = 0
 		Button.BackgroundTransparency = 1
+		
+		if (#Script >= 200000) then
+			ScriptEditor.Text = ("-- Text too large to render (more than 200k characters)\n-- Please use a loadstring");
+		else
+			ScriptEditor.Text = (Settings.SavedSettings.Tabs[NewIndex].Code);
+		end
 	end)
-	
+
 	if (Button.LayoutOrder == 1) then
 		Settings.CurrentIndex = (NewIndex);
 		Button.BackgroundTransparency = (1);
@@ -306,21 +329,21 @@ end
 
 RC7.SwitchTheme = function(Startup: boolean)
 	local ThemeSettings = (Settings.Themes[Settings.SavedSettings.Theme]);
-	
+
 	MainUI.Image = ThemeSettings.Background
 	Login.SidebarHider.Image = ThemeSettings.SidebarHidden
 	Login.Password.Hidden.TextColor3 = ThemeSettings.TextColor
 	Login.Username.TextColor3 = ThemeSettings.TextColor
 	Login.Submit.Title.TextColor3 = ThemeSettings.TextColor
 	Login.Submit.Image = ThemeSettings.Buttons.Idle
-	
+
 	for _, Button in next, (ExecutorButtons:GetChildren()) do
 		if (Button:IsA("GuiButton")) then
 			Button.Image = ThemeSettings.Buttons.Idle
 			Button.Title.TextColor3 = ThemeSettings.TextColor
 		end
 	end
-	
+
 	if (not Startup) then
 		RC7.SaveSettings();
 	end
@@ -330,32 +353,32 @@ end
 do -- File System
 	if (makefolder and isfolder and writefile and isfile and listfiles) then
 		local Loading = false
-		
+
 		if (not isfolder("_RC7")) then
 			makefolder("_RC7");
 		end
-		
+
 		if (not isfolder("_RC7/Scripts")) then
 			makefolder("_RC7/Scripts");
 		end
-		
+
 		if (not isfile("_RC7/Settings.json")) then
 			writefile("_RC7/Settings.json", HttpService:JSONEncode(Settings.SavedSettings));
 			Loading = true
 		else
 			Settings.SavedSettings = HttpService:JSONDecode(readfile("_RC7/Settings.json"));
 		end
-		
+
 		for _, File in next, listfiles("_RC7/Scripts") do
 			RC7.LoadFileScript(File);
 		end
-		
+
 		for _, Tab in next, (Settings.SavedSettings.Tabs or {}) do
 			if (Tab and typeof(Tab) == "table") then
 				RC7.NewTab(Tab.Name, Tab.Code, Tab.Index, true);
 			end
 		end
-		
+
 		if (Loading) then
 			RC7.NewTab();
 		end
@@ -432,7 +455,6 @@ do -- Connections
 		local Editor = (Executor.Editor);
 
 		Settings.SavedSettings.Tabs[Settings.CurrentIndex].Code = Script
-
 		LineCounter.Text = (function()
 			local Text = ""
 			for Line = 1, Lines do
@@ -466,10 +488,10 @@ do -- Connections
 	SaveFile.Create.MouseButton1Click:Connect(function()
 		RC7.SaveFile(SaveFile.FileName.Text);
 	end)
-	
+
 	for _, Config in next, Configuration:GetChildren() do
 		local Dropdown = ConfigurationTabs:FindFirstChild(Config.Name);
-		
+
 		if (Config:IsA("GuiButton") and Dropdown) then			
 			Config.MouseButton1Click:Connect(function()
 				Dropdown.Visible = (not Dropdown.Visible)
@@ -496,6 +518,7 @@ end
 Login.Visible = true
 Executor.Visible = false
 Configuration.Visible = false
+UI.Parent = CoreGui or LocalPlayer.PlayerGui
 
 Utilities.ButtonAnimate(Login.Submit);
 Utilities.SetupWindow(FileExplorer, true);
