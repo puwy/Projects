@@ -7,4 +7,4 @@
 loadstring(game:HttpGet("https://raw.githubusercontent.com/puwy/Projects/refs/heads/main/UI/RC7/Source.luau"))()
 ```
 # 👀 Preview
-<img width="402" height="448" alt="image" src="https://github.com/user-attachments/assets/df447184-58a6-4a1d-95cd-62b26aff043a" />
+<img width="943" height="457" alt="image" src="https://github.com/user-attachments/assets/eb57ab24-7d0a-4fea-bdec-f6061d96274d" />
