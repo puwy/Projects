@@ -4,7 +4,7 @@
 </div>
 
 ```lua
--- no code yet
+local Highlighter = loadstring(game:HttpGet("https://raw.githubusercontent.com/puwy/Projects/refs/heads/main/Utilities/SyntaxHighlighter/Source.luau"))()
 ```
 
 # 👀 View the documentation here!
