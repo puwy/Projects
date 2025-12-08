@@ -46,6 +46,7 @@ local Output = (Executor.Output);
 local Tabs = (Executor.Tabs);
 local Login = (MainUI.Stages.Login);
 local ConfigurationTabs = (Window.ConfigurationTabs);
+local Open = (UI.Open);
 
 local TopbarButtons = (Topbar.WindowButtons);
 local SidebarButtons = (MainUI.Sidebar.Buttons);
@@ -63,8 +64,12 @@ local Settings = ({});
 Settings.OutputLayoutOrder = (0);
 Settings.CurrentIndex = (1);
 Settings.SavedSettings = ({
-	Theme = ("Default"),
-	Tabs = ({});
+	Theme = ("Classic Wolf"),
+	Tabs = ({}),
+	Settings = ({
+		["Syntax Highlighting"] = false,
+		["Auto Login"] = false,
+	}),
 })
 
 Settings.Themes = ({
@@ -133,7 +138,7 @@ Settings.Themes = ({
 			Held = "rbxassetid://85967445856692",
 		}
 	},
-	
+
 	["Asriel"] = {
 		Background = "rbxassetid://135898167255005",
 		SidebarHidden = "rbxassetid://114335053823029",
@@ -150,8 +155,9 @@ Settings.Themes = ({
 local Utilities = ({});
 local RC7 = ({});
 
-Utilities.DragWindow = function(Window: GuiObject)
-	local Topbar = Window:WaitForChild("Topbar") :: GuiObject
+--> Utilities
+Utilities.DragWindow = function(Window: GuiObject, UseSelf)
+	local Topbar = (UseSelf and Window) or Window:WaitForChild("Topbar") :: GuiObject
 	local Dragging = false
 	local DragStart, Starting = nil, nil
 
@@ -214,7 +220,7 @@ Utilities.ButtonAnimate = function(Button)
 	})
 end
 
-Utilities.SetupWindow = function(Window: GuiObject, Undestroyable: boolean)
+Utilities.SetupWindow = function(Window: GuiObject)
 	local Topbar = Window:WaitForChild("Topbar") :: GuiObject
 
 	for _, Button in next, Topbar.WindowButtons:GetChildren() do
@@ -229,14 +235,12 @@ Utilities.SetupWindow = function(Window: GuiObject, Undestroyable: boolean)
 			Button.MouseButton1Click:Connect(function()
 				local Type = (Button.Name);
 
-				if (Type == "Close") then
-					if (Undestroyable) then
-						Window.Visible = false
-					else
-						Window:Destroy();
-					end
-				elseif (Type == "Minimize") then
+				if (Type == "Close" or Type == "Minimize") then
 					Window.Visible = false
+
+					if (Window.Name == "Window") then
+						Open.Visible = true
+					end
 				end
 			end)
 		end
@@ -264,6 +268,7 @@ Utilities.UpdateScrolling = function()
 	end
 end
 
+--> RC7
 RC7.LoadFileScript = function(Path: string)
 	local Script = readfile(Path);
 
@@ -303,13 +308,13 @@ RC7.NewTab = function(Name, Code, Index, IsLoading)
 	Button.MouseButton1Click:Connect(function()
 		local OldIndex = (Settings.CurrentIndex);
 		local Script = (Settings.SavedSettings.Tabs[NewIndex].Code);
-		
+
 		Settings.CurrentIndex = (NewIndex);
 		Tabs:FindFirstChild(tostring(OldIndex)).BackgroundTransparency = 0
 		Button.BackgroundTransparency = 1
-		
+
 		if (#Script >= 200000) then
-			ScriptEditor.Text = ("-- Text too large to render (more than 200k characters)\n-- Please use a loadstring");
+			ScriptEditor.Text = ("-- Text too large to render (more than 200k Characters)\n-- Please use a loadstring");
 		else
 			ScriptEditor.Text = (Settings.SavedSettings.Tabs[NewIndex].Code);
 		end
@@ -323,8 +328,10 @@ RC7.NewTab = function(Name, Code, Index, IsLoading)
 end
 
 RC7.SaveSettings = function()
-	local JSON = HttpService:JSONEncode(Settings.SavedSettings);
-	writefile("_RC7/Settings.json", JSON);
+	if (writefile) then
+		local JSON = HttpService:JSONEncode(Settings.SavedSettings);
+		writefile("_RC7/Settings.json", JSON);
+	end
 end
 
 RC7.SwitchTheme = function(Startup: boolean)
@@ -347,6 +354,64 @@ RC7.SwitchTheme = function(Startup: boolean)
 	if (not Startup) then
 		RC7.SaveSettings();
 	end
+end
+
+RC7.Login = function()
+	task.wait(0.25)
+	Window.Visible = false
+	task.wait(0.5)
+	Window.AnchorPoint = Vector2.new(1, 0.5);
+	Window.Position = UDim2.fromScale(1, 0.5);
+	Window.Visible = true
+	Login.Visible = false
+	Executor.Visible = true
+	Configuration.Visible = true
+	Utilities.SetupWindow(Window);
+end
+
+--> Syntax Highlighter
+local HighlightObject
+local Highlighter do
+	pcall(function()
+		if (RunService:IsStudio()) then
+			Highlighter = require(script.Highlighter);
+		else
+			Highlighter = loadstring(game:HttpGet("https://raw.githubusercontent.com/puwy/Projects/refs/heads/main/Utilities/SyntaxHighlighter/Source.luau"))();
+		end
+
+		if (Highlighter) then
+			Highlighter.setTokenColors({
+				["background"] = Color3.fromRGB(255, 255, 255),
+				["iden"]       = Color3.fromRGB(0, 0, 0),
+				["keyword"]    = Color3.fromRGB(0, 0, 127),
+				["builtin"]    = Color3.fromRGB(131, 15, 7),
+				["string"]     = Color3.fromRGB(127, 0, 127),
+				["number"]     = Color3.fromRGB(0, 127, 127),
+				["comment"]    = Color3.fromRGB(0, 127, 9),
+				["operator"]   = Color3.fromRGB(127, 127, 0),
+				["custom"]     = Color3.fromRGB(0, 0, 0),
+			})
+		end
+	end)
+end
+
+local UpdateHighlight = function(State)
+	task.spawn(function()
+		if (Highlighter) then	
+			ScriptEditor.TextColor3 = (State and Color3.fromRGB(200, 200, 200)) or Color3.fromRGB(0, 0, 0);
+			ScriptEditor.TextTransparency = 0
+
+			if (HighlightObject) then
+				HighlightObject();
+			end
+
+			if (State) then
+				HighlightObject = Highlighter.highlight({
+					textObject = ScriptEditor,
+				})
+			end
+		end
+	end)
 end
 
 -- Init
@@ -382,6 +447,8 @@ do -- File System
 		if (Loading) then
 			RC7.NewTab();
 		end
+	else
+		RC7.NewTab();
 	end
 end
 
@@ -438,6 +505,8 @@ do -- Executor Buttons
 						Message.Parent = Output
 						Message.Visible = true
 					end
+
+					RC7.SaveSettings();
 				elseif (Type == "Open") then
 					FileExplorer.Visible = true
 				end
@@ -447,14 +516,23 @@ do -- Executor Buttons
 end
 
 do -- Connections
+	local LastSaved = (0)
+
 	CreateTab.MouseButton1Click:Connect(RC7.NewTab);
-	ScriptEditor:GetPropertyChangedSignal("CursorPosition"):Connect(Utilities.UpdateScrolling)
+	MainUI.Stages.Login.Submit.MouseButton1Click:Connect(RC7.Login);
+	ScriptEditor:GetPropertyChangedSignal("CursorPosition"):Connect(Utilities.UpdateScrolling);
+
 	ScriptEditor:GetPropertyChangedSignal("Text"):Connect(function()
 		local Script = (ScriptEditor.Text);
 		local Lines = #(Script):split("\n");
 		local Editor = (Executor.Editor);
+		local RC7Settings = (Settings.SavedSettings.Settings);
+		local Index = (Settings.SavedSettings.Tabs[Settings.CurrentIndex]);
 
-		Settings.SavedSettings.Tabs[Settings.CurrentIndex].Code = Script
+		if (Index and Index.Code) then
+			Index.Code = Script
+		end
+
 		LineCounter.Text = (function()
 			local Text = ""
 			for Line = 1, Lines do
@@ -464,7 +542,11 @@ do -- Connections
 		end)()
 
 		Utilities.UpdateScrolling();
-		RC7.SaveSettings();
+
+		if (tick() - LastSaved >= 5) then
+			LastSaved = (tick());
+			RC7.SaveSettings();
+		end
 	end)
 
 	Login.Password:GetPropertyChangedSignal("Text"):Connect(function()
@@ -472,21 +554,14 @@ do -- Connections
 		Login.Password.Hidden.Text = string.rep("•", #Password);
 	end)
 
-	MainUI.Stages.Login.Submit.MouseButton1Click:Connect(function()
-		task.wait(0.25)
-		Window.Visible = false
-		task.wait(0.5)
-		Window.AnchorPoint = Vector2.new(1, 0.5);
-		Window.Position = UDim2.fromScale(1, 0.5);
-		Window.Visible = true
-		Login.Visible = false
-		Executor.Visible = true
-		Configuration.Visible = true
-		Utilities.SetupWindow(Window);
-	end)
 
 	SaveFile.Create.MouseButton1Click:Connect(function()
 		RC7.SaveFile(SaveFile.FileName.Text);
+	end)
+
+	Open.MouseButton1Click:Connect(function()
+		Window.Visible = true
+		Open.Visible = false
 	end)
 
 	for _, Config in next, Configuration:GetChildren() do
@@ -501,26 +576,63 @@ do -- Connections
 end
 
 do -- Dropdowns
-	for Name, Theme in next, Settings.Themes do
-		local DropdownSlider = ConfigurationTabs:FindFirstChild("Edit Theme").Scroll
+	for Name, Theme in next, (Settings.Themes) do
+		local DropdownSlider = (ConfigurationTabs:FindFirstChild("Edit Theme").Scroll);
 		local Button = DropdownSlider.Template:Clone();
+
 		Button.Parent = DropdownSlider
 		Button.Text = Name
 		Button.Visible = true
+
 		Button.MouseButton1Click:Connect(function()
 			DropdownSlider.Parent.Visible = false
 			Settings.SavedSettings.Theme = Name
 			RC7.SwitchTheme();
 		end)
 	end
+
+	for Name, Value in next, (Settings.SavedSettings.Settings) do
+		local DropdownSlider = (ConfigurationTabs:FindFirstChild("Settings").Scroll);
+		local Button = DropdownSlider.Template:Clone();
+		local CurrentValue = (Value);
+
+		Button.Parent = DropdownSlider
+		Button.Visible = true
+		Button.Text = (`{ CurrentValue and "✓" or "☐" } { Name }`);
+
+		Button.MouseButton1Click:Connect(function()
+			CurrentValue = (not CurrentValue);
+			DropdownSlider.Parent.Visible = false
+			Settings.SavedSettings.Settings[Name] = CurrentValue
+			Button.Text = (`{ CurrentValue and "✓" or "☐" } { Name }`);
+			RC7.SaveSettings();
+
+			if (Name == "Syntax Highlighting") then
+				UpdateHighlight(CurrentValue);
+			end
+		end)
+	end
 end
 
-Login.Visible = true
-Executor.Visible = false
-Configuration.Visible = false
-UI.Parent = CoreGui or LocalPlayer.PlayerGui
+do -- Settings
+	local RC7Settings = (Settings.SavedSettings.Settings);
 
+	if (RC7Settings["Auto Login"]) then
+		RC7.Login();
+	else
+		Login.Visible = true
+		Executor.Visible = false
+		Configuration.Visible = false
+	end
+
+	if (Highlighter and Settings.SavedSettings.Settings["Syntax Highlighting"]) then
+		UpdateHighlight(true);
+	end
+end
+
+UI.Parent = CoreGui or LocalPlayer.PlayerGui
 Utilities.ButtonAnimate(Login.Submit);
-Utilities.SetupWindow(FileExplorer, true);
-Utilities.SetupWindow(SaveFile.Parent, true);
+Utilities.SetupWindow(FileExplorer);
+Utilities.SetupWindow(SaveFile.Parent);
+Utilities.DragWindow(Open, true);
 RC7.SwitchTheme(true);
